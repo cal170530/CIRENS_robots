@@ -21,7 +21,7 @@ def main():
 
     try:
         
-        followbot = FollowBot()
+        followbot = FollowBot(agent='robot2',leader='robot1')
         #leaderbot = LeaderBot()
         #executor.add_node(leaderbot)
         executor.add_node(followbot)

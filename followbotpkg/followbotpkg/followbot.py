@@ -49,54 +49,23 @@ class FollowBot(Node):
 
     target = None
 
-    def __init__(self):
+    def __init__(self,agent,leader):
         super().__init__('followbot')
-        tf_topic  = '/robot1/tf'
-        
-        global robot2_frame
+        tf_topic  = '/'+leader+'/tf'
+        self.agent = agent
+        self.leader= leader
+      
         dock_sub = self.create_subscription(DockStatus,
                                             '/dock',
                                             self.dockCallback,
                                             qos_profile_sensor_data)
-        # tf_sub = self.create_subscription(
-        #      msg_type= TFMessage,
-        #      topic = tf_topic,
-        #      callback=self.tf_callback,
-        #       qos_profile=QoSProfile(reliability=QoSReliabilityPolicy.RELIABLE, durability=QoSDurabilityPolicy.VOLATILE, depth=10)
-            
-        #  )
-        # tf_sub2 = self.create_subscription(
-        #      msg_type= TFMessage,
-        #      topic = tf_topic2,
-        #      callback=self.tf_callback2,
-        #       qos_profile=QoSProfile(reliability=QoSReliabilityPolicy.RELIABLE, durability=QoSDurabilityPolicy.VOLATILE, depth=10)
-            
-        #  )
-        self.target_frame = self.declare_parameter(
-           'target_frame', '/robot2/base_link').get_parameter_value().string_value
+ 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer,self)
-    #     self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', qos_profile_system_default)
-    #     self.user_led_pub = self.create_publisher(UserLed, '/hmi/led', qos_profile_sensor_data)
-      
-    #     self.undock_action_client = ActionClient(self, Undock, '/undock')
+   
         self.timer = self.create_timer(1.0,self.on_timer)
         self.publisher = self.create_publisher(Twist, '/robot2/cmd_vel',1)
-    # def on_timer(self):
-    #     from_frame_rel = 'robot1'
-    #     to_frame_rel  = 'robot2'
-    #     print(self.tf_buffer)
-    #     try:
-    #         trans = self.tf_buffer.lookup_transform(
-    #         to_frame_rel,
-    #         from_frame_rel,
-    #         rclpy.time.Time())
-    #         print(trans)
-    #     except TransformException as ex:
-    #         self.get_logger().info(
-    #         f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
-    #     return
-        
+
     # Dock subscription callback
     def dockCallback(self, msg: DockStatus):
         self.is_docked = msg.is_docked
@@ -127,19 +96,17 @@ class FollowBot(Node):
         if undock_goal_result.result.is_docked:
             print('Undocking failed')
 
-    # Calculate direction of target relative to robot
-   
+    # Calculate direction of leader relative to agent
 
     def on_timer(self):
-        to_frame_rel = 'robot2'
-        from_frame_rel = 'robot1'
+      
         try:
-            t= self.tf_buffer.lookup_transform(to_frame_rel,
-                                               from_frame_rel,
+            t= self.tf_buffer.lookup_transform(self.agent,
+                                               self.leader,
                                                rclpy.time.Time())
-            print('robot1-robot2:'+'x:'+str(t.transform.translation.x) +' y:'+ str(t.transform.translation.y))
+            print(self.leader+'-'+self.agent+': '+'x:'+str(t.transform.translation.x) +' y:'+ str(t.transform.translation.y))
            
-            scale_rotation_rate = 3.0
+            scale_rotation_rate = 1.0
             rot_angle = scale_rotation_rate*math.atan2(
                 t.transform.translation.y,
                 t.transform.translation.x
@@ -150,49 +117,10 @@ class FollowBot(Node):
                 t.transform.translation.y**2
             )
             self.drive(drive_distance,rot_angle)
-            print('moving towards robot1')
+            print(self.agent+' following '+self.leader)
         except TransformException as ex:
             self.get_logger().info(
-                f'Could not transform {to_frame_rel} to {from_frame_rel}: {ex}')
+                f'Could not transform {self.agent} to {self.leader}: {ex}')
             return
  
-    def run(self):
-        # Undock first
-        if self.is_docked:
-            print('Undocking')
-            self.undock()
 
-        while True:
-           
-           print('running')
-           time.sleep(3)
-           time.sleep(1/self.fps)
-
-
-# def main(args=None):
-#     rclpy.init(args=args)
-
-#     node = FollowBot()
-
-#     # Spin rclpy on separate thread
-#     thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
-#     thread.start()
-
-#     # Allow time for other nodes to start
-#     time.sleep(5)
-
-#     print('Running FollowBot...\n')
-
-#     try:
-#         node.run()
-#     except KeyboardInterrupt:
-#         pass
-
-#     node.destroy_node()
-#     rclpy.shutdown()
-
-#     thread.join()
-
-
-# # if __name__ == '__main__':
-# #     main()
