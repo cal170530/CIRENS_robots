@@ -9,6 +9,6 @@ Steps:
 1.Build tf_relay_pkg and followbotpkg
 
 2. 'ros2 run tf_relay relay'
-3. 
-4. 'ros2 run followbotpkg followbot'
+ 
+3. 'ros2 run followbotpkg followbot'
 
