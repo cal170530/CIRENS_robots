@@ -6,7 +6,7 @@ followbotpkg: robot1 is designated as the leader.  Each i != 1, robot{i} moves i
 
 Steps:
 
-1.Build tf_relay_pkg and followbotpkg
+1. Build tf_relay_pkg and followbotpkg
 
 2. 'ros2 run tf_relay relay'
  
