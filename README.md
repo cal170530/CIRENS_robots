@@ -4,7 +4,9 @@ tf_relay_pkg: rebroadcast the 'base_link" tf from each '\robot{i}\tf to a common
 
 followbotpkg: robot1 is designated as the leader.  Each i != 1, robot{i} moves in the direction of robot1 relative to its frame. 
 
-Steps:
+teleop.py: A GUI to drive a namespaced robot using arrow buttons
+
+Steps to run followbot:
 
 1. Build tf_relay_pkg and followbotpkg
 
@@ -12,3 +14,6 @@ Steps:
  
 3. 'ros2 run followbotpkg followbot'
 
+Steps to run teleop.py
+1. pip3 install PyQt6
+2. python3 teleop.py
