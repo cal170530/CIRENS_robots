@@ -9,12 +9,6 @@ from enum import Enum
 import threading
 import math
 
-class Direction(Enum):
-    LEFT = 0
-    RIGHT = 1
-    UP = 2
-    DOWN = 3
-
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
