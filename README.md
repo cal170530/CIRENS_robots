@@ -16,6 +16,6 @@ Steps to run followbot:
  
 3. 'ros2 run followbotpkg followbot'
 
-Steps to run teleop.py/analog_teleop.py
+Steps to run teleop.py or analog_teleop.py
 1. pip3 install PyQt6
-2. python3 teleop.py/python3 analog_teleop.py
+2. python3 teleop.py or python3 analog_teleop.py
