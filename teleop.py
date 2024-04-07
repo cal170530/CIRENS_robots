@@ -9,6 +9,7 @@ from enum import Enum
 import threading
 import math
 
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -25,9 +26,11 @@ class MainWindow(QWidget):
         down = QPushButton("\u2193")
       
         namespace_lbl= QLabel("Enter namespace:")
-        velocity_lbl = QLabel("Enter Linear Speed:")
+        velocity_lbl = QLabel("Enter Linear Velocity:")
+        angVelLbl = QLabel("Enter Angular Velocity:")
         self.input = QLineEdit()
         self.velInput = QLineEdit()
+        self.angVelInput = QLineEdit()
        
         left.pressed.connect(lambda: self.onPressed(1))
         left.released.connect(lambda: self.onRelease())
@@ -38,6 +41,8 @@ class MainWindow(QWidget):
         down.pressed.connect(lambda: self.onPressed(4))
         down.released.connect(lambda: self.onRelease())
         self.velInput.setFixedWidth(40)
+        self.angVelInput.setFixedWidth(40)
+
         layout = QGridLayout()
         layout.setRowStretch(0,50)
         layout.setRowStretch(1,100)
@@ -51,6 +56,8 @@ class MainWindow(QWidget):
         layout.addWidget(self.input,1,4)
         layout.addWidget(velocity_lbl,2,4)
         layout.addWidget(self.velInput,3,4)
+        layout.addWidget(angVelLbl,4,4)
+        layout.addWidget(self.angVelInput,5,4)
         layout.setHorizontalSpacing(10)
         self.timer.timeout.connect(self.moveAction)
         self.setLayout(layout)
@@ -63,9 +70,10 @@ class MainWindow(QWidget):
     def moveAction(self):
         namespace = self.input.text()
         try:
-            speed = float(self.velInput.text())
+            linear_vel = float(self.velInput.text())
+            angular_vel = float(self.angVelInput.text())
             print("moving in direction: "+str(self.dir))
-            self.teleop_node.broadcast(self.dir,namespace,speed)
+            self.teleop_node.broadcast(self.dir,namespace,linear_vel,angular_vel)
         except: 
             speed = 0.0
             print('invalid input')
@@ -76,7 +84,7 @@ class teleop_gui(Node):
         super().__init__('teleop_gui')
         self.published_namespaces = []
         self.active_publishers = []
-    def broadcast(self, dir,namespace,vel):
+    def broadcast(self, dir,namespace,linear_vel,angular_vel):
         if namespace in self.active_publishers:
             i = self.published_namespaces.index(namespace)
             publisher = self.active_publishers[i]
@@ -86,16 +94,16 @@ class teleop_gui(Node):
             self.published_namespaces.append(namespace)
         msg = Twist()
         if dir == 1:
-            msg.angular.z = math.pi/2
+            msg.angular.z = angular_vel*math.pi/2
         if dir == 2:
             msg.angular.z = 0.0
         if dir == 3:
-            msg.angular.z = -math.pi/2
+            msg.angular.z = -angular_vel*math.pi/2
         if dir == 4:
-            msg.angular.z = math.pi
-        msg.linear.x = vel
+            msg.angular.z = angular_vel*math.pi
+        msg.linear.x = linear_vel
         publisher.publish(msg)
-        #publisher.destroy()
+        
 def main(args=None):
     
     app = QApplication(sys.argv)
