@@ -36,8 +36,5 @@ class TFRelay(Node):
                 transform.header.frame_id = self.frame_prefix
                 transform.child_frame_id = self.child_frame_prefix 
                 self.publisher.publish(msg)
-            # if transform.
-           # transform.header.frame_id = self.frame_prefix + transform.header.frame_id
-            #transform.child_frame_id = self.frame_prefix + transform.child_frame_id
-            #transform.header.frame_id = self.frame_prefix + transform.header.frame_id
-        #self.publisher.publish(msg)
+         
+     
