@@ -12,9 +12,9 @@ class TFRelay(Node):
         #self.frame_prefix = str(namespace) + str(agent) + '/'
         self.child_frame_prefix = str(namespace) + str(agent)
         self.frame_prefix = 'world'
-        self.frame_get = '/'+str(namespace)+str(agent)+'/odom'
-        self.frame_get2 = '/'+str(namespace)+str(agent)+'/base_link'
-        self.childframe_get2 = 'wheel_drop_right'
+        self.frame_get = 'odom'
+        self.frame_get2 = 'base_link'
+      
         self.subscription = self.create_subscription(
             msg_type=TFMessage,
             topic=tf_topic,
