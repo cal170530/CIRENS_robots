@@ -51,15 +51,16 @@ class AgentController(Node):
         self.agent = 'robot'+str(i)
         self.id = i
         self.neighbors= neighbors
-        self.X = np.zeros((len(neighbors),2))
+        #self.X = np.zeros((len(neighbors),2))
+        self.X = dict.fromkeys(neighbors)
         self.trackedNeighbors = dict.fromkeys(neighbors)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer,self)
-        self.rot_vel = 1.0
+        self.rot_vel = 0.5
         self.linear_vel = 1.0
         self.timer = self.create_timer(1.0,self.on_timer)
         self.publisher = self.create_publisher(Twist, '/'+self.agent+'/cmd_vel',1)
- 
+        
            
     # Dock subscription callback
     def dockCallback(self, msg: DockStatus):
@@ -89,12 +90,20 @@ class AgentController(Node):
       
         for neighbor in self.neighbors:
             try:
-                i = self.neighbors.index(neighbor)
-                t= self.tf_buffer.lookup_transform(self.agent,
-                                                    neighbor,
-                                                    rclpy.time.Time())
-                self.X[i] = (t.transform.translation.x, t.transform.translation.y)
+                #i = self.neighbors.index(neighbor)
+                
+                self.X[neighbor] = np.array((0.0,0.0))
+                if neighbor != self.agent:
+                    t= self.tf_buffer.lookup_transform(self.agent,
+                                                        neighbor,
+                                                        rclpy.time.Time())
+                    self.X[neighbor] = np.array((t.transform.translation.x, t.transform.translation.y))
+             
+                
                 self.trackedNeighbors[neighbor] = 1
+                
+            
+                
             except TransformException as ex:
                 self.get_logger().info(
                     f'Could not transform {self.agent} to {neighbor}: {ex}')
@@ -110,15 +119,29 @@ class AgentController(Node):
 #------------
 #------------ Consensus Algorithm:
     def Controller(self):
-        Xi = self.X[self.id]
+        #Xi = self.X[self.id]
+        Xi = np.array((0.0,0.0))
         dx = np.array((0.0,0.0))
+       # print('Xi=' +str(type(Xi)))
+       # print('dx=' +str(type(dx)))
         count = 0
         for neighbor in self.neighbors:
-            k = self.neighbors.index(neighbor)
-            if k != self.id and self.trackedNeighbors[neighbor] == 1:
-                dx+= self.X[k]-Xi
+            #k = self.neighbors.index(neighbor)
+            #if k != self.id and self.trackedNeighbors[neighbor] == 1:
+         #   print(type(self.X[neighbor]))
+            print(neighbor+str(self.X[neighbor]))
+          
+            if neighbor != self.agent and self.trackedNeighbors[neighbor] ==1:
+                Xn = self.X[neighbor]
+          #      print('Xn='+str(type(Xn)))
+          #      print(str(Xi))
+          #      print(str(Xn))
+                dx+= Xn-Xi
                 count+=1
-        dx = dx/count
+        if count>0:
+             dx = dx/count
+             
+       
         self.stateUpdate(dx)
 
 #------------STATE UPDATE
@@ -129,17 +152,22 @@ class AgentController(Node):
         msg = Twist()
         x= dx[0]
         y= dx[1]
-        theta = self.rot_vel*math.atan2(y,x)
-        if theta > 0.1:
-            msg.angular.z = theta
-            msg.linear.x = 0.0
-            print('theta'+str(theta))
-        elif theta <-0.1:
-            msg.angular.z = theta
-            msg.linear.x = 0.0
-            print('theta'+str(theta))
+        if math.sqrt(dx[0]**2+dx[1]**2)< 0:
+            print(self.agent+' has reached consensus.'+str(dx))
         else:
-           
-            msg.angular.z =0.0
-            msg.linear.x = self.linear_vel*math.sqrt(x**2+y**2)
-        self.publisher.publish(msg)
+            theta = math.atan2(y,x)
+            if theta > 0.2:
+                msg.angular.z = self.rot_vel*theta
+                msg.linear.x = 0.0
+                print('theta'+str(theta))
+                self.publisher.publish(msg)
+            elif theta <-0.2:
+                msg.angular.z = theta
+                msg.linear.x = 0.0
+                print('theta'+str(theta))
+                self.publisher.publish(msg)
+            else: 
+                print(self.agent+' Moving'+str(x) +str(y))   
+                msg.angular.z =self.rot_vel*theta
+                msg.linear.x = self.linear_vel*math.sqrt(x**2+y**2)
+                self.publisher.publish(msg)
