@@ -78,13 +78,13 @@ class AgentController_Sim(Node):
                 try:
                     pose_subscriber = self.create_subscription(
                         PoseStamped,
-                        '/vcrn/mocap/'+neighbor+'/pose',
+                        '/vrpn_mocap/'+neighbor+'/pose',
                         lambda msg,name = neighbor :self.pose_callback(msg,name),
                         #lambda msg, neighbor: self.pose_callback(msg, neighbor),
                         qos_profile_sensor_data)
                     self.subscribers[neighbor] = pose_subscriber
                     print("Adding subscriber:")
-                    print("  topic: ", '/'+neighbor+'/sim_ground_truth_pose')
+                    print("  topic: ", '/vrpn_mocap/'+neighbor+'/pose')
                     
                 except:
                     print('no subscription was made.')
