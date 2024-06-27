@@ -14,8 +14,8 @@ from geometry_msgs.msg import PoseStamped,Twist
 from nav_msgs.msg import Odometry
 from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy
-
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, qos_profile_sensor_data
+from turtlebot4_msgs.msg import UserLed
 
 
 #pose.orientation is a quaternion, this converts it to an angle which represents the global heading of the robot
@@ -30,7 +30,7 @@ def quaternion_to_heading_angle(q):
    
 class AgentController_Sim(Node):
 
-    def __init__(self,i,neighbors,sim = False):
+    def __init__(self,i,neighbors,sim = 0):
         super().__init__('AgentController_Sim')
         self.agent = 'robot'+str(i)
         self.id = i
@@ -41,35 +41,64 @@ class AgentController_Sim(Node):
         self.heading = 0.0  
         self.rot_vel = 0.7
         self.linear_vel = 1.0
-        self.min_prox = 0.85
-        self.min_goal_prox = 0.86
+        self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent+'/hmi/led', qos_profile_sensor_data)
+        self.sim = sim
+        if self.sim == 0:
+            self.min_prox = 0.35
+            self.min_goal_prox = 0.36
+        elif self.sim ==1:
+            self.min_prox = 0.35
+            self.min_goal_prox = 0.36
         self.timer = self.create_timer(0.2,self.on_timer)
         self.publisher = self.create_publisher(Twist, '/'+self.agent+'/cmd_vel',1)
         self.create_subscribers()
     def create_subscribers(self):
-           
-        for neighbor in self.neighbors:
-            print(self.agent+' has neighbor: '+neighbor)
-            try:
-                pose_subscriber = self.create_subscription(
-                    Odometry,
-                    '/'+neighbor+'/sim_ground_truth_pose',
-                    lambda msg,name = neighbor :self.pose_callback(msg,name),
-                    #lambda msg, neighbor: self.pose_callback(msg, neighbor),
-                    qos_profile_sensor_data)
-                self.subscribers[neighbor] = pose_subscriber
-                print("Adding subscriber:")
-                print("  topic: ", '/'+neighbor+'/sim_ground_truth_pose')
-                
-            except:
-                print('no subscription was made.')
+        if  self.sim ==0:
+            for neighbor in self.neighbors:
+                print(self.agent+' has neighbor: '+neighbor)
+                try:
+                    pose_subscriber = self.create_subscription(
+                        Odometry,
+                        '/'+neighbor+'/sim_ground_truth_pose',
+                        lambda msg,name = neighbor :self.pose_callback(msg,name),
+                        #lambda msg, neighbor: self.pose_callback(msg, neighbor),
+                        qos_profile_sensor_data)
+                    self.subscribers[neighbor] = pose_subscriber
+                    print("Adding subscriber:")
+                    print("  topic: ", '/'+neighbor+'/sim_ground_truth_pose')
+                    
+                except:
+                    print('no subscription was made.')
+        elif self.sim == 1:
+                   
+            for neighbor in self.neighbors:
+                print(self.agent+' has neighbor: '+neighbor)
+                try:
+                    pose_subscriber = self.create_subscription(
+                        PoseStamped,
+                        '/vcrn/mocap/'+neighbor+'/pose',
+                        lambda msg,name = neighbor :self.pose_callback(msg,name),
+                        #lambda msg, neighbor: self.pose_callback(msg, neighbor),
+                        qos_profile_sensor_data)
+                    self.subscribers[neighbor] = pose_subscriber
+                    print("Adding subscriber:")
+                    print("  topic: ", '/'+neighbor+'/sim_ground_truth_pose')
+                    
+                except:
+                    print('no subscription was made.')
             
         
     def pose_callback(self, msg,neighbor):
         """ callback function to get the pose from mocap data """
-        x, y = msg.pose.pose.position.x, msg.pose.pose.position.y
+        if self.sim == 0:
+            x, y = msg.pose.pose.position.x, msg.pose.pose.position.y
+        elif self.sim ==1:
+            x,y = msg.pose.position.x, msg.pose.position.y
         if neighbor == self.agent:
-            self.heading = quaternion_to_heading_angle(msg.pose.pose.orientation)
+            if self.sim ==0:
+                self.heading = quaternion_to_heading_angle(msg.pose.pose.orientation)
+            elif self.sim ==1:
+                self.heading = quaternion_to_heading_angle(msg.pose.orientation)
         self.X[neighbor] = np.array((x,y))  
     # Dock subscription callback(Not currently used)
     def dockCallback(self, msg: DockStatus):
@@ -125,13 +154,13 @@ class AgentController_Sim(Node):
             if self.trackedNeighbors[neighbor] == 1:
                 diff = self.X[neighbor]- Xi
                 euclid_diff = math.sqrt(diff[0]**2+diff[1]**2)
-                if math.sqrt(diff[0]**2+diff[1]**2)< self.min_prox and neighbor != self.agent:
+                if euclid_diff<= self.min_prox and neighbor != self.agent:
                     print(self.agent+' is '+str(euclid_diff)+' away from '+neighbor)
                     avoid_list.append(diff)
                 
                 dx+= diff
                 count+=1
-                print(dx)
+                #print(dx)
         dx = dx/count
         #if ( not math.isnan(dx[0]) and  not math.isnan(dx[1]) and not diff == [0,0]):
         
@@ -150,6 +179,9 @@ class AgentController_Sim(Node):
         dist_from_goal = math.sqrt(x**2+y**2)
         theta = math.atan2(y,x)
         dtheta = theta-self.heading
+        if dist_from_goal <self.min_goal_prox:
+            self.setLed(0, 1, 500, 0.5)
+            print(self.agent+' has reached goal.')
         if dtheta > 0.2:
             msg.angular.z = self.rot_vel*dtheta
             msg.linear.x = 0.0
@@ -164,8 +196,9 @@ class AgentController_Sim(Node):
         if avoid_list != [] and dist_from_goal> self.min_goal_prox:
             print(self.agent+' avoiding')
             self.reroute(avoid_list)
-        else:
+        elif dist_from_goal> self.min_goal_prox:
             self.publisher.publish(msg)
+        
     
     def reroute(self,avoid_list):
     #Untested..

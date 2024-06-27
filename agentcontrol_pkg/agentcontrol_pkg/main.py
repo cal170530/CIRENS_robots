@@ -14,7 +14,7 @@ def main():
     #if len(sys.argv) == 1:
     match(len(sys.argv)):
         case 2:
-            sim = sys.argv[1]
+            sim = int(sys.argv[1])
         case 3:
             namespace = str(sys.argv[2])
         case 4:
@@ -34,8 +34,8 @@ def main():
     
     try:
         for agent in agents: 
-            if sim:
-                controller = AgentController_Sim(agent,neighbors = N[agent])
+            if sim ==0 or sim == 1:
+                controller = AgentController_Sim(agent,neighbors = N[agent],sim = sim)
             else: 
                 controller = AgentController(agent,neighbors = N[agent])
             controllers.append(controller)
