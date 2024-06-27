@@ -228,8 +228,8 @@ class AgentController_Sim(Node):
         msg = Twist()
         theta_avoid =[]
         for loc in avoid_list:
-            x = avoid_list[0]
-            y = avoid_list[1]
+            x = loc[0]
+            y = loc[1]
             theta = math.atan2(y,x)
             theta_avoid.append(theta-self.heading)
         rightmost = max(theta_avoid)+.3
