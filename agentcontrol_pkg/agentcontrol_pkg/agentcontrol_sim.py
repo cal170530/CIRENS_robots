@@ -53,6 +53,8 @@ class AgentController_Sim(Node):
         self.publisher = self.create_publisher(Twist, '/'+self.agent+'/cmd_vel',1)
         self.create_subscribers()
     def create_subscribers(self):
+    #Creates subscribers to each neighbors pose.  Sends the pose and the neighbor id to the pose_callback function to handle the data.    
+    #################################################################################################################################
         #If sim mode:
         if  self.mode ==0:
             for neighbor in self.neighbors:
@@ -80,7 +82,6 @@ class AgentController_Sim(Node):
                         PoseStamped,
                         '/vrpn_mocap/'+neighbor+'/pose',
                         lambda msg,name = neighbor :self.pose_callback(msg,name),
-                        #lambda msg, neighbor: self.pose_callback(msg, neighbor),
                         qos_profile_sensor_data)
                     self.subscribers[neighbor] = pose_subscriber
                     print("Adding subscriber:")
@@ -91,6 +92,9 @@ class AgentController_Sim(Node):
             
         
     def pose_callback(self, msg,neighbor):
+    # For each neighbor's pose, stores the (x,y) coordinates in self.X[neighbor]. If the neighbor is this agent, store the agent heading as "self.heading"
+    #This callback runs every time a pose is published to the agent's subscribers, so it continuously updates the positions of neighbors.
+    ####################################################################################################################################
         """ callback function to get the pose from mocap data """
         # If sim mode:
         if self.mode == 0:
@@ -106,11 +110,15 @@ class AgentController_Sim(Node):
         self.X[neighbor] = np.array((x,y))  
     # Dock subscription callback(Not currently used)
     def dockCallback(self, msg: DockStatus):
+    # Not currently used
+    ####################################################################################################################################
         self.is_docked = msg.is_docked
 
 
     # Set User LEDs for TurtleBot 4)
     def setLed(self, led, color, period, duty):
+    #Function to set led, indicating that agent's target has been reached. 
+    ####################################################################################################################################
         msg = UserLed()
         msg.led = led
         msg.color = color
@@ -121,6 +129,8 @@ class AgentController_Sim(Node):
 
     # Undock action
     def undock(self):
+    #Not currently used
+    ####################################################################################################################################
         self.undock_action_client.wait_for_server()
         undock_goal_result = self.undock_action_client.send_goal(Undock.Goal())
         if undock_goal_result.result.is_docked:
@@ -129,6 +139,8 @@ class AgentController_Sim(Node):
     # Calculate direction of leader relative to agent
 
     def on_timer(self):
+    # Periodic function that checks if agent has the positions of all of its neighbors.  If true, then 'self.Controller' is called. 
+    ####################################################################################################################################
         tracking = True
         for neighbor in self.neighbors:
             if self.X[neighbor] is None:
@@ -144,11 +156,13 @@ class AgentController_Sim(Node):
             self.Controller()
                    
 
-#------------ CONTROLLER
-#------------ X[k] is the state of robot{k}
-#------------ Xi is the state of the controlled robot
-# #------------ Consensus Algorithm:
+
     def Controller(self):
+    #------------ CONTROLLER
+    #------------ X[k] is the state of robot{k}
+    #------------ Xi is the state of the controlled robot
+    # ------------ Consensus Algorithm: dx/dt = 1/n*sum((Xi-X[k])), for k in self.neighbors. 
+    ####################################################################################################################################
         Xi = self.X[self.agent]
         dx = np.array((0.0,0.0))
         count = 0
@@ -158,6 +172,7 @@ class AgentController_Sim(Node):
             if self.trackedNeighbors[neighbor] == 1:
                 diff = self.X[neighbor]- Xi
                 euclid_diff = math.sqrt(diff[0]**2+diff[1]**2)
+            ### Checks if current agent is about to run into any of its neighbors before it reaches the goal.  If so, adds the positions of neighbor to an avoid list.
                 if euclid_diff<= self.min_prox and neighbor != self.agent:
                     print(self.agent+' is '+str(euclid_diff)+' away from '+neighbor)
                     avoid_list.append(diff)
@@ -166,26 +181,27 @@ class AgentController_Sim(Node):
                 count+=1
                 #print(dx)
         dx = dx/count
-        #if ( not math.isnan(dx[0]) and  not math.isnan(dx[1]) and not diff == [0,0]):
-        
         self.stateUpdate(dx,avoid_list)
 
-#------------STATE UPDATE
-#------------Need to determine how best to get a displacement of 'dx' through one twist msg..
-#------------Current method: 'rotate then move straight'
+
      
     def stateUpdate(self, dx,avoid_list = []):
-        
-
+    #------------STATE UPDATE
+    #------------Sends dx as Twist message to topic /self.agent/cmd_vel 
+    #------------If 
+    #------------Current method: 'rotate then move straight'    
+    ####################################################################################################################################
         msg = Twist()
         x= dx[0]
         y= dx[1]
         dist_from_goal = math.sqrt(x**2+y**2)
         theta = math.atan2(y,x)
         dtheta = theta-self.heading
+        #### If goal is reached, turn on led
         if dist_from_goal <self.min_goal_prox:
             self.setLed(0, 1, 500, 0.5)
             print(self.agent+' has reached goal.')
+        #### If goal is not reached and self.heading is more than .2 radians away from target, create rotate msg.
         if dtheta > 0.2:
             msg.angular.z = self.rot_vel*dtheta
             msg.linear.x = 0.0
@@ -194,12 +210,15 @@ class AgentController_Sim(Node):
             msg.angular.z = self.rot_vel*dtheta
             msg.linear.x = 0.0
             #print(self.agent+'rotating to '+str(self.rot_vel*dtheta))
+        #### If goal is not reached and self.heading is within .2 radians of target, move straight(and rotate to correct trajectory, rotation should be small)
         else:   
             msg.angular.z =self.rot_vel*dtheta
             msg.linear.x = self.linear_vel*min(dist_from_goal,1.5)
+        #### If current agent has not reached its goal and avoid list is populated, reroute to avoid collisions
         if avoid_list != [] and dist_from_goal> self.min_goal_prox:
             print(self.agent+' avoiding')
             self.reroute(avoid_list)
+        #### If not about to collide, publish Twist message to /self.agent/cmd_vel
         elif dist_from_goal> self.min_goal_prox:
             self.publisher.publish(msg)
         
