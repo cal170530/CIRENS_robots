@@ -30,7 +30,7 @@ def quaternion_to_heading_angle(q):
    
 class AgentController_Sim(Node):
 
-    def __init__(self,i,neighbors,sim = 0):
+    def __init__(self,i,neighbors,mode = 0):
         super().__init__('AgentController_Sim')
         self.agent = 'robot'+str(i)
         self.id = i
@@ -42,18 +42,19 @@ class AgentController_Sim(Node):
         self.rot_vel = 0.7
         self.linear_vel = 1.0
         self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent+'/hmi/led', qos_profile_sensor_data)
-        self.sim = sim
-        if self.sim == 0:
+        self.mode = mode
+        if self.mode == 0:
             self.min_prox = 0.35
             self.min_goal_prox = 0.36
-        elif self.sim ==1:
+        elif self.mode ==1:
             self.min_prox = 0.35
             self.min_goal_prox = 0.36
         self.timer = self.create_timer(0.2,self.on_timer)
         self.publisher = self.create_publisher(Twist, '/'+self.agent+'/cmd_vel',1)
         self.create_subscribers()
     def create_subscribers(self):
-        if  self.sim ==0:
+        #If sim mode:
+        if  self.mode ==0:
             for neighbor in self.neighbors:
                 print(self.agent+' has neighbor: '+neighbor)
                 try:
@@ -69,7 +70,8 @@ class AgentController_Sim(Node):
                     
                 except:
                     print('no subscription was made.')
-        elif self.sim == 1:
+        #If Mocap mode:
+        elif self.mode == 1:
                    
             for neighbor in self.neighbors:
                 print(self.agent+' has neighbor: '+neighbor)
@@ -90,14 +92,16 @@ class AgentController_Sim(Node):
         
     def pose_callback(self, msg,neighbor):
         """ callback function to get the pose from mocap data """
-        if self.sim == 0:
+        # If sim mode:
+        if self.mode == 0:
             x, y = msg.pose.pose.position.x, msg.pose.pose.position.y
-        elif self.sim ==1:
+        #If mocap mode:
+        elif self.mode ==1:
             x,y = msg.pose.position.x, msg.pose.position.y
         if neighbor == self.agent:
-            if self.sim ==0:
+            if self.mode ==0:
                 self.heading = quaternion_to_heading_angle(msg.pose.pose.orientation)
-            elif self.sim ==1:
+            elif self.mode ==1:
                 self.heading = quaternion_to_heading_angle(msg.pose.orientation)
         self.X[neighbor] = np.array((x,y))  
     # Dock subscription callback(Not currently used)
