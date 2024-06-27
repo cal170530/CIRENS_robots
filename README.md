@@ -19,3 +19,6 @@ Steps to run followbot:
 Steps to run teleop.py or analog_teleop.py
 1. pip3 install PyQt6
 2. python3 teleop.py or python3 analog_teleop.py
+
+Run Optitrack:
+ros2 launch vrpn_mocap client.launch.yaml server:=192.168.0.131 port:=3883
