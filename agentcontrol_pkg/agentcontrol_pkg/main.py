@@ -9,12 +9,12 @@ def main():
     executor = SingleThreadedExecutor()
     agents = [1,2]
     namespace = 'robot'
-    sim = False
+    mode = False
 
     #if len(sys.argv) == 1:
     match(len(sys.argv)):
         case 2:
-            sim = int(sys.argv[1])
+            mode = int(sys.argv[1])
         case 3:
             namespace = str(sys.argv[2])
         case 4:
@@ -34,8 +34,8 @@ def main():
     
     try:
         for agent in agents: 
-            if sim ==0 or sim == 1:
-                controller = AgentController_Sim(agent,neighbors = N[agent],sim = sim)
+            if mode ==0 or mode == 1:
+                controller = AgentController_Sim(agent,neighbors = N[agent],mode = mode)
             else: 
                 controller = AgentController(agent,neighbors = N[agent])
             controllers.append(controller)
