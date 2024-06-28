@@ -1,4 +1,5 @@
 # CIRENS_robots
+************Note: Cloning this repo into your workspace and running it doesn't seem to work(it should, but something is missing in this repo).   What does work is manually creating a package with: "ros2 pkg create --build-type ament_python --node-name agentcontrol agentcontrol_pkg".  Then copy/replace all the files in here into the package:setup.py, main.py,agentcontrol_sim.py,agentcontrol.py.  Then build the package with: "colcon build --symlink-install --packages-select agentcontrol_pkg"
 
 tf_relay_pkg: rebroadcast the 'base_link" tf from each '\robot{i}\tf to a common '\tf' topic as child frames of a 'world' root frame. 
 
