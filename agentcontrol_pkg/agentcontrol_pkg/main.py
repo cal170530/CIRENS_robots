@@ -38,11 +38,12 @@ def main():
         for agent in agents: 
             if mode ==0 or mode == 1:
                 controller = AgentController_Sim(agent,neighbors = N[agent],mode = mode)
-            elif mode ==2:
+            elif mode ==2 and agent != leader:
                 controller = LF_formation_ctl(agent,neighbors = N[agent],leader = leader, mode = mode) 
             else:
                 controller = AgentController(agent,neighbors = N[agent])
-            controllers.append(controller)
+            if agent != leader:
+                controllers.append(controller)
 
         for controller in controllers:
             executor.add_node(controller)
