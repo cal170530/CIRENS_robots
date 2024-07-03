@@ -38,6 +38,7 @@ class AgentController_Sim(Node):
         self.X = dict.fromkeys(neighbors)
         self.trackedNeighbors = dict.fromkeys(neighbors)        
         self.subscribers = dict.fromkeys(neighbors)  
+        self.headings = dict.fromkeys(neighbors)
         self.heading = 0.0  
         self.rot_vel = 0.7
         self.linear_vel = 1.0
@@ -102,6 +103,7 @@ class AgentController_Sim(Node):
         #If mocap mode:
         elif self.mode ==1:
             x,y = msg.pose.position.x, msg.pose.position.y
+            self.headings[neighbors] = quaternion_to_heading_angle(msg.pose.orientation)
         if neighbor == self.agent:
             if self.mode ==0:
                 self.heading = quaternion_to_heading_angle(msg.pose.pose.orientation)
@@ -175,7 +177,7 @@ class AgentController_Sim(Node):
             ### Checks if current agent is about to run into any of its neighbors before it reaches the goal.  If so, adds the positions of neighbor to an avoid list.
                 if euclid_diff<= self.min_prox and neighbor != self.agent:
                     print(self.agent+' is '+str(euclid_diff)+' away from '+neighbor)
-                    avoid_list.append(diff)
+                    avoid_list.append(neighbor)
                 
                 dx+= diff
                 count+=1
@@ -226,13 +228,18 @@ class AgentController_Sim(Node):
     def reroute(self,avoid_list):
     #Untested..
         msg = Twist()
-        theta_avoid =[]
-        for loc in avoid_list:
-            x = loc[0]
-            y = loc[1]
+        rightmost_neighbor = -10
+        for neighbor in avoid_list:
+            x = self.X[neighbor][0]
+            y = self.X[neighbor][1]
             theta = math.atan2(y,x)
-            theta_avoid.append(theta-self.heading)
-        rightmost = max(theta_avoid)+.3
-        msg.angular.z = self.rot_vel*rightmost
-        msg.linear.x = 0.2
+            if theta>rightmost_neighbor:
+                rightmost_neighbor = neighbor
+        theta = self.headings[rightmost_neighbor]    
+        if theta*self.heading<0:
+            target_theta = self.heading-math.pi/2
+        else:
+            target_theta = theta-self.heading
+        msg.angular.z = self.rot_vel*target_theta
+        msg.linear.x = 0.1
         self.publisher.publish(msg)
