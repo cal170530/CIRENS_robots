@@ -22,6 +22,7 @@ Steps to run agentcontroller(consensus algorithm at the moment):
 1. Build agentcontrol_pkg
 2. If running simulator: 'ros2 run agentcontrol_pkg agentcontrol -h" to see options
 3. If running optitrack: 'ros2 run agentcontrol_pkg agentcontrol -h" to see options
+   
 Example usage:
 ros2 run agentcontrol_pkg agentcontrol -cm -a 3 7 9           #This runs consensus mode with agents set: {robot3, robot7, robot9}  
 ros2 run agentcontrol_pkg agentcontrol -lfm -a 3 7 9 -l 3     # This runs leader-follower mode with agent set: {robot3, robot7, robot9} and leader set: {robot3}
