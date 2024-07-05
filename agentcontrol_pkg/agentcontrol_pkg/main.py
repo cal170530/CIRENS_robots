@@ -4,6 +4,7 @@ import sys
 from agentcontrol_pkg.agentcontrol import AgentController
 from agentcontrol_pkg.agentcontrol_sim import AgentController_Sim
 from agentcontrol_pkg.LF_formation_ctl import LF_formation_ctl
+from agentcontrol_pkg.Consensus_ctl import Consensus_ctl
 import argparse
 def main():
     rclpy.init()
