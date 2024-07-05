@@ -32,7 +32,8 @@ class Consensus_ctl(Node):
 
     def __init__(self,i,neighbors,namespace,mode = 0):
         super().__init__('Consensus_ctl')
-        self.agent_name = 'robot'+str(i)
+        self.agent_name = namespace+str(i)
+        self.namespace = namespace
         self.id = i
         self.neighbors= neighbors
         self.X = dict.fromkeys(neighbors)

@@ -6,6 +6,9 @@ from agentcontrol_pkg.agentcontrol_sim import AgentController_Sim
 from agentcontrol_pkg.LF_formation_ctl import LF_formation_ctl
 from agentcontrol_pkg.Consensus_ctl import Consensus_ctl
 import argparse
+import yaml
+import numpy as np
+
 def main():
     rclpy.init()
     ##
@@ -28,7 +31,7 @@ def main():
         if i not in leaders:
             Ni = []
             Fdi = dict.fromkeys(agents)
-            for j in len(A[i]):
+            for j in range(len(A[i])):
                 if A[i][j]  != 0:
                     Ni.append(agents[j])
                     if opt.lformation:
@@ -60,11 +63,11 @@ def main():
 
 def get_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m","--mode" ,type = int, help = "",default =0, help ="Enter mode: 0 = optitrack, 1= sim, 2 = tf/odom")
+    parser.add_argument("-m","--mode" ,type = int, default =0, help ="Enter mode: 0 = optitrack, 1= sim, 2 = tf/odom")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-cm","--consensus",action= "store_true",default = False, help = "Consensus Mode")
     group.add_argument("-lfm","--lformation",action = "store_true", default = False, help = " Leader/follower formation mode")
-    parser.add_argument("-p", "--path",type = str, default = "agent_setup.yaml",help = "/path/to/agent_setup.yaml")
+    parser.add_argument("-p", "--path",type = str, default = "agentcontrol_pkg/resource/agent_setup/agent_setup.yaml",help = "/path/to/agent_setup.yaml")
     parser.add_argument("-a","--agents", nargs = '+',type = int)
     parser.add_argument("-l","--leaders", nargs = '+',type = int )
     parser.add_argument("-ns","--namespace",type = str, default = 'robot', help = "namespace to be used")
