@@ -21,9 +21,8 @@ Steps to run agentcontroller(consensus algorithm at the moment):
 -----if running simulator or live robots with optitrack:
    
 1. Build agentcontrol_pkg
-2. Modify main.py to include the indices of the robots that will participate, e.g., 'agents = [1,2,5,10]'
-3. If running simulator: 'ros2 run agentcontrol_pkg agentcontrol 0"
-4. If running optitrack: 'ros2 run agentcontrol_pkg agentcontrol 1"
+2. If running simulator: 'ros2 run agentcontrol_pkg agentcontrol -h" to see options
+3. If running optitrack: 'ros2 run agentcontrol_pkg agentcontrol -h" to see options
    
 
 Steps to run teleop.py or analog_teleop.py
