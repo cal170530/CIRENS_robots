@@ -30,65 +30,68 @@ def quaternion_to_heading_angle(q):
    
 class LF_formation_ctl(Node):
 
-    def __init__(self,i,neighbors,leader,mode = 0):
+    def __init__(self,i,neighbors,namespace,leaders, Fd,mode = 0):
         super().__init__('LF_formation_ctl')
-        self.agent = 'robot'+str(i)
+        self.namespace = namespace
+        self.agent_name = namespace+str(i)
         self.id = i
         self.neighbors= neighbors
-        self.leader = leader
-        self.leader_heading = 0.0
+        self.leaders = leaders
+        self.leader_headings = dict.fromkeys(leaders)
+        self.Fd = Fd
         self.X = dict.fromkeys(neighbors)
         self.trackedNeighbors = dict.fromkeys(neighbors)        
         self.subscribers = dict.fromkeys(neighbors)  
         self.heading = 0.0  
         self.rot_vel = 0.7
         self.linear_vel = 1.0
-        self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent+'/hmi/led', qos_profile_sensor_data)
+        self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent_name+'/hmi/led', qos_profile_sensor_data)
         self.mode = mode
         self.min_prox = 0.36
         self.formation_distance = 0.8
         self.timer = self.create_timer(0.2,self.on_timer)
-        self.publisher = self.create_publisher(Twist, '/'+self.agent+'/cmd_vel',1)
+        self.publisher = self.create_publisher(Twist, '/'+self.agent_name+'/cmd_vel',1)
         self.create_subscribers()
     def create_subscribers(self):
     #Creates subscribers to each neighbors pose.  Sends the pose and the neighbor id to the pose_callback function to handle the data.    
     #################################################################################################################################
-        #If sim mode:
-        if  self.mode ==0:
+        #If Mocap mode:
+        if self.mode ==0:
+                   
             for neighbor in self.neighbors:
-                print(self.agent+' has neighbor: '+neighbor)
+                neighbor_name = self.namespace+str(neighbor)
+                print(self.agent_name+' has neighbor: '+neighbor_name)
+                try:
+                    pose_subscriber = self.create_subscription(
+                        PoseStamped,
+                        '/vrpn_mocap/'+neighbor_name+'/pose',
+                        lambda msg,name = neighbor :self.pose_callback(msg,name),
+                        qos_profile_sensor_data)
+                    self.subscribers[neighbor] = pose_subscriber
+                    print("Adding subscriber:")
+                    print("  topic: ", '/vrpn_mocap/'+neighbor_name+'/pose')
+                    
+                except:
+                    print('no subscription was made.')
+            
+        #If sim mode:
+        if  self.mode ==1:
+            for neighbor in self.neighbors:
+                neighbor_name = self.namespace+str(neighbor)
+                print(self.agent_name+' has neighbor: '+neighbor_name)
                 try:
                     pose_subscriber = self.create_subscription(
                         Odometry,
-                        '/'+neighbor+'/sim_ground_truth_pose',
+                        '/'+neighbor_name+'/sim_ground_truth_pose',
                         lambda msg,name = neighbor :self.pose_callback(msg,name),
                         #lambda msg, neighbor: self.pose_callback(msg, neighbor),
                         qos_profile_sensor_data)
                     self.subscribers[neighbor] = pose_subscriber
                     print("Adding subscriber:")
-                    print("  topic: ", '/'+neighbor+'/sim_ground_truth_pose')
+                    print("  topic: ", '/'+neighbor_name+'/sim_ground_truth_pose')
                     
                 except:
-                    print('no subscription was made.')
-        #If Mocap mode:
-        elif self.mode == 1:
-                   
-            for neighbor in self.neighbors:
-                print(self.agent+' has neighbor: '+neighbor)
-                try:
-                    pose_subscriber = self.create_subscription(
-                        PoseStamped,
-                        '/vrpn_mocap/'+neighbor+'/pose',
-                        lambda msg,name = neighbor :self.pose_callback(msg,name),
-                        qos_profile_sensor_data)
-                    self.subscribers[neighbor] = pose_subscriber
-                    print("Adding subscriber:")
-                    print("  topic: ", '/vrpn_mocap/'+neighbor+'/pose')
-                    
-                except:
-                    print('no subscription was made.')
-            
-        
+                    print('no subscription was made.')        
     def pose_callback(self, msg,neighbor):
     # For each neighbor's pose, stores the (x,y) coordinates in self.X[neighbor]. If the neighbor is this agent, store the agent heading as "self.heading"
     #This callback runs every time a pose is published to the agent's subscribers, so it continuously updates the positions of neighbors.
@@ -96,9 +99,9 @@ class LF_formation_ctl(Node):
         """ callback function to get the pose from mocap data """
        
         x,y = msg.pose.position.x, msg.pose.position.y
-        if neighbor == self.leader:
-            self.leader_heading = quaternion_to_heading_angle(msg.pose.orientation)
-        if neighbor == self.agent:
+        if neighbor in self.leaders:
+            self.leader_headings[neighbor] = quaternion_to_heading_angle(msg.pose.orientation)
+        if neighbor == self.id:
             self.heading = quaternion_to_heading_angle(msg.pose.orientation)
         self.X[neighbor] = np.array((x,y))  
     # Dock subscription callback(Not currently used)
@@ -138,14 +141,14 @@ class LF_formation_ctl(Node):
         for neighbor in self.neighbors:
             if self.X[neighbor] is None:
                 tracking = False
-                #print(self.agent +' does not see '+ neighbor)
+                #print(self.agent_name +' does not see '+ neighbor)
             else:
                 self.trackedNeighbors[neighbor]=1
-                #print(self.agent+' sees '+str(self.X[neighbor]))
+                #print(self.agent_name+' sees '+str(self.X[neighbor]))
      
 
         if tracking == True:
-            #print(self.agent+ ' controller is called.....')
+            #print(self.agent_name+ ' controller is called.....')
             self.Controller()
                    
 
@@ -156,21 +159,21 @@ class LF_formation_ctl(Node):
     #------------ Xi is the state of the controlled robot
     # ------------ Consensus Algorithm: dx/dt = 1/n*sum((Xi-X[k])), for k in self.neighbors. 
     ####################################################################################################################################
-        Xi = self.X[self.agent]
+        Xi = self.X[self.id]
         dx = np.array((0.0,0.0))
 
         avoid_list = []
         for neighbor in self.neighbors:
-
+            neighbor_name = self.namespace+str(neighbor)
             if self.trackedNeighbors[neighbor] == 1:
                 diff = self.X[neighbor]- Xi
                 euclid_diff = math.sqrt(diff[0]**2+diff[1]**2)
             ### Checks if current agent is about to run into any of its neighbors before it reaches the goal.  If so, adds the positions of neighbor to an avoid list.
-                if euclid_diff<= self.min_prox and neighbor != self.agent:
-                    print(self.agent+' is '+str(euclid_diff)+' away from '+neighbor)
+                if euclid_diff<= self.min_prox and neighbor != self.id:
+                    print(self.agent_name+' is '+str(euclid_diff)+' away from '+neighbor_name)
                     avoid_list.append(diff)
                 
-                dx+= (euclid_diff- self.formation_distance)/euclid_diff*diff
+                dx+= (euclid_diff- self.Fd[neighbor])*diff
                 
                 #print(dx)
         dx = dx
@@ -180,7 +183,7 @@ class LF_formation_ctl(Node):
      
     def stateUpdate(self, dx,avoid_list = []):
     #------------STATE UPDATE
-    #------------Sends dx as Twist message to topic /self.agent/cmd_vel 
+    #------------Sends dx as Twist message to topic /self.agent_name/cmd_vel 
     #------------If 
     #------------Current method: 'rotate then move straight'    
     ####################################################################################################################################
@@ -195,8 +198,8 @@ class LF_formation_ctl(Node):
         #### If goal is reached, turn on led
         if agent_in_formation:
             self.setLed(0, 1, 500, 0.5)
-            print(self.agent+' has reached goal.')
-            dtheta = self.leader_heading-self.heading
+            print(self.agent_name+' has reached goal.')
+            dtheta = self.leader_headings[0]-self.heading
             msg.linear.x = 0.0
             msg.angular.z = self.rot_vel*dtheta
             self.publisher.publish(msg)
@@ -205,20 +208,20 @@ class LF_formation_ctl(Node):
             if dtheta > 0.2:
                 msg.angular.z = self.rot_vel*dtheta
                 msg.linear.x = 0.0
-                #(self.agent+'rotating to '+str(self.rot_vel*dtheta))
+                #(self.agent_name+'rotating to '+str(self.rot_vel*dtheta))
             elif dtheta <-0.2:
                 msg.angular.z = self.rot_vel*dtheta
                 msg.linear.x = 0.0
-                #print(self.agent+'rotating to '+str(self.rot_vel*dtheta))
+                #print(self.agent_name+'rotating to '+str(self.rot_vel*dtheta))
             #### If goal is not reached and self.heading is within .2 radians of target, move straight(and rotate to correct trajectory, rotation should be small)
             else:   
                 msg.angular.z =self.rot_vel*dtheta
                 msg.linear.x = self.linear_vel*min(dist_from_goal,1.5)
             #### If current agent has not reached its goal and avoid list is populated, reroute to avoid collisions
             if avoid_list != [] and dist_from_goal> self.min_goal_prox:
-                print(self.agent+' avoiding')
+                print(self.agent_name+' avoiding')
                 self.reroute(avoid_list)
-            #### If not about to collide, publish Twist message to /self.agent/cmd_vel
+            #### If not about to collide, publish Twist message to /self.agent_name/cmd_vel
             else:
                 self.publisher.publish(msg)
         
