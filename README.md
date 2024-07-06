@@ -15,8 +15,9 @@ Steps to run agentcontroller(consensus algorithm at the moment):
 
 1. Build tf_relay_pkg and agentcontrol_pkg
 2. Modify main.py to include the indices of the robots that will participate, e.g., 'agents = [1,2,5,10]'
-   ```ros2 run tf_relay relay ```
-5. ```ros2 run agentcontrol_pkg agentcontrol```
+   
+3. ```ros2 run tf_relay relay ```
+4. ```ros2 run agentcontrol_pkg agentcontrol```
 
 ## running simulator or live robots with optitrack:   
 1. Build agentcontrol_pkg
