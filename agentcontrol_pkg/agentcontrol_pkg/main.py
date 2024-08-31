@@ -67,7 +67,7 @@ def get_opt():
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-cm","--consensus",action= "store_true",default = False, help = "Consensus Mode")
     group.add_argument("-lfm","--lformation",action = "store_true", default = False, help = " Leader/follower formation mode")
-    parser.add_argument("-p", "--path",type = str, default = "agentcontrol_pkg/agent_setup/agent_setup.yaml",help = "/path/to/agent_setup.yaml")
+    parser.add_argument("-p", "--path",type = str, default = "src/agentcontrol_pkg/agent_setup/agent_setup.yaml",help = "/path/to/agent_setup.yaml")
     parser.add_argument("-a","--agents", nargs = '+',type = int)
     parser.add_argument("-l","--leaders", nargs = '+',type = int )
     parser.add_argument("-ns","--namespace",type = str, default = 'robot', help = "namespace to be used")
