@@ -69,7 +69,7 @@ def get_opt():
     group.add_argument("-lfm","--lformation",action = "store_true", default = False, help = " Leader/follower formation mode")
     parser.add_argument("-p", "--path",type = str, default = "src/agentcontrol_pkg/agent_setup/agent_setup.yaml",help = "/path/to/agent_setup.yaml")
     parser.add_argument("-a","--agents", nargs = '+',type = int)
-    parser.add_argument("-l","--leaders", nargs = '+',type = int )
+    parser.add_argument("-l","--leaders", default = [],nargs = '+',type = int )
     parser.add_argument("-ns","--namespace",type = str, default = 'robot', help = "namespace to be used")
     opt = parser.parse_args()
     formation_distances = []
