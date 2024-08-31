@@ -61,6 +61,7 @@ class Consensus_ctl(Node):
                    
             for neighbor in self.neighbors:
                 neighbor_name = self.namespace+str(neighbor)
+                neighbor_name = neighbor_name.replace('ro','turtle')
                 print(self.agent_name+' has neighbor: '+neighbor_name)
                 try:
                     pose_subscriber = self.create_subscription(
