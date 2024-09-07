@@ -179,7 +179,7 @@ class Consensus_ctl(Node):
                 euclid_diff = math.sqrt(diff[0]**2+diff[1]**2)
             ### Checks if current agent is about to run into any of its neighbors before it reaches the goal.  If so, adds the positions of neighbor to an avoid list.
                 if euclid_diff<= self.min_prox and neighbor != self.id:
-                    print(self.agent_name+' is '+str(euclid_diff)+' away from '+neighbor)
+                    print(self.agent_name+' is '+str(euclid_diff)+' away from '+str(neighbor))
                     avoid_list.append(diff)
                 
                 dx+= diff
