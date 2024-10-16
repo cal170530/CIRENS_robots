@@ -16,7 +16,7 @@ from irobot_create_msgs.action import Undock
 from irobot_create_msgs.msg import DockStatus
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, qos_profile_sensor_data
 from turtlebot4_msgs.msg import UserLed
-
+import time
 
 #pose.orientation is a quaternion, this converts it to an angle which represents the global heading of the robot
 def quaternion_to_heading_angle(q):
@@ -47,6 +47,9 @@ class LF_formation_ctl(Node):
         self.linear_vel = 1.0
         self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent_name+'/hmi/led', qos_profile_sensor_data)
         self.mode = mode
+        self.at_goal = False
+        self.good_with_neighbors = True
+        self.goal_count = 0
         self.min_prox = 0.36
         self.formation_distance = 0.8
         self.timer = self.create_timer(0.2,self.on_timer)
@@ -60,6 +63,8 @@ class LF_formation_ctl(Node):
                    
             for neighbor in self.neighbors:
                 neighbor_name = self.namespace+str(neighbor)
+                neighbor_name = neighbor_name.replace('ro','turtle')
+                #neighbor_name = self.namespace+str(neighbor)
                 print(self.agent_name+' has neighbor: '+neighbor_name)
                 try:
                     pose_subscriber = self.create_subscription(
@@ -160,8 +165,9 @@ class LF_formation_ctl(Node):
     # ------------ Consensus Algorithm: dx/dt = 1/n*sum((Xi-X[k])), for k in self.neighbors. 
     ####################################################################################################################################
         Xi = self.X[self.id]
+        #Xi = np.array((0,0))
         dx = np.array((0.0,0.0))
-
+        self.good_with_neighbors = True
         avoid_list = []
         for neighbor in self.neighbors:
             neighbor_name = self.namespace+str(neighbor)
@@ -172,11 +178,14 @@ class LF_formation_ctl(Node):
                 if euclid_diff<= self.min_prox and neighbor != self.id:
                     print(self.agent_name+' is '+str(euclid_diff)+' away from '+neighbor_name)
                     avoid_list.append(diff)
-                
-                dx+= (euclid_diff- self.Fd[neighbor])*diff
-                
-                #print(dx)
+                if (euclid_diff - self.Fd[neighbor])> 0.15:
+                    self.at_goal = False
+                    dx+= (euclid_diff- self.Fd[neighbor])*diff
+                #if self.id == 1:
+                   # print('robot' + str(self.id)+ 'is '+ str(euclid_diff)+ ' away from robot '+ str(neighbor))
         dx = dx
+        #if self.id == 1:
+           # print('updating to go towards: '+str(dx))
         self.stateUpdate(dx,avoid_list)
 
 
@@ -193,16 +202,17 @@ class LF_formation_ctl(Node):
         dist_from_goal = math.sqrt(x**2+y**2)
         theta = math.atan2(y,x)
         dtheta = theta-self.heading
-        agent_in_formation = dist_from_goal<0.15
+        agent_in_formation = self.good_with_neighbors
 
         #### If goal is reached, turn on led
         if agent_in_formation:
             self.setLed(0, 1, 500, 0.5)
             print(self.agent_name+' has reached goal.')
-            dtheta = self.leader_headings[0]-self.heading
+            #dtheta = self.leader_headings[0]-self.heading
             msg.linear.x = 0.0
-            msg.angular.z = self.rot_vel*dtheta
-            self.publisher.publish(msg)
+            #msg.angular.z = self.rot_vel*dtheta
+            #self.publisher.publish(msg)
+            self.at_goal = True
         #### If goal is not reached and self.heading is more than .2 radians away from target, create rotate msg.
         else:
             if dtheta > 0.2:
@@ -218,13 +228,19 @@ class LF_formation_ctl(Node):
                 msg.angular.z =self.rot_vel*dtheta
                 msg.linear.x = self.linear_vel*min(dist_from_goal,1.5)
             #### If current agent has not reached its goal and avoid list is populated, reroute to avoid collisions
-            if avoid_list != [] and dist_from_goal> self.min_goal_prox:
-                print(self.agent_name+' avoiding')
-                self.reroute(avoid_list)
+           #if avoid_list != [] and dist_from_goal> self.min_goal_prox:
+            #    print(self.agent_name+' avoiding')
+                #self.reroute(avoid_list)
             #### If not about to collide, publish Twist message to /self.agent_name/cmd_vel
-            else:
+            #else:
+            if not self.at_goal:
                 self.publisher.publish(msg)
-        
+            else:
+                self.goal_count+=1
+                if self.goal_count ==20:
+                    self.at_goal= False
+                    self.goal_count=0
+            
     
     def reroute(self,avoid_list):
     #Untested..

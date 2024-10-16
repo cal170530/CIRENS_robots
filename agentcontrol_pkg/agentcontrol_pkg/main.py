@@ -35,7 +35,7 @@ def main():
                 if A[i][j]  != 0:
                     Ni.append(agents[j])
                     if opt.lformation:
-                        Fdi[agents[j]] = formation_distances[i][j]
+                        Fdi[agents[j]] = .6*formation_distances[i][j]
             N[agents[i]] = Ni
             if opt.lformation:
                 Fd[agents[i]] = Fdi
@@ -43,10 +43,11 @@ def main():
     
     try:
         for agent in agents: 
-            if mode ==0 or mode == 1:
+            if opt.consensus:
                 controller = Consensus_ctl(agent,neighbors = N[agent], namespace = opt.namespace, mode = mode)
-            elif mode ==2:
-                controller = LF_formation_ctl(agent,neighbors = N[agent],namespace = opt.namespace,leaders = leaders,Fd = Fd[agent], mode = mode) 
+            elif opt.lformation:
+            	if agent not in leaders:
+                    controller = LF_formation_ctl(agent,neighbors = N[agent],namespace = opt.namespace,leaders = leaders,Fd = Fd[agent], mode = mode) 
             else:
                 controller = AgentController(agent,neighbors = N[agent])
             controllers.append(controller)
@@ -66,8 +67,8 @@ def get_opt():
     parser.add_argument("-m","--mode" ,type = int, default =0, help ="Enter mode: 0 = optitrack, 1= sim, 2 = tf/odom")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-cm","--consensus",action= "store_true",default = False, help = "Consensus Mode")
-    group.add_argument("-lfm","--lformation",action = "store_true", default = False, help = " Leader/follower formation mode")
-    parser.add_argument("-p", "--path",type = str, default = "src/agentcontrol_pkg/agent_setup/agent_setup.yaml",help = "/path/to/agent_setup.yaml")
+    group.add_argument("-lfm","--lformation",action = "store_true", default = True, help = " Leader/follower formation mode")
+    parser.add_argument("-p", "--path",type = str, default = "src/agentcontrol_pkg/agent_setup/agent_setup (C).yaml",help = "/path/to/agent_setup.yaml")
     parser.add_argument("-a","--agents", nargs = '+',type = int)
     parser.add_argument("-l","--leaders", default = [],nargs = '+',type = int )
     parser.add_argument("-ns","--namespace",type = str, default = 'robot', help = "namespace to be used")
