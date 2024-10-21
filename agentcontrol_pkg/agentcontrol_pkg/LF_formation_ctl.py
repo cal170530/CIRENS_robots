@@ -37,12 +37,11 @@ class LF_formation_ctl(Node):
         self.id = i
         self.neighbors= neighbors
         self.leaders = leaders
-        self.leader_headings = dict.fromkeys(leaders)
+        self.headings = dict.fromkeys(neighbors)
         self.Fd = Fd
         self.X = dict.fromkeys(neighbors)
         self.trackedNeighbors = dict.fromkeys(neighbors)        
-        self.subscribers = dict.fromkeys(neighbors)  
-        self.heading = 0.0  
+        self.subscribers = dict.fromkeys(neighbors)   
         self.rot_vel = 0.7
         self.linear_vel = 1.0
         self.user_led_pub = self.create_publisher(UserLed, '/'+self.agent_name+'/hmi/led', qos_profile_sensor_data)
@@ -50,7 +49,7 @@ class LF_formation_ctl(Node):
         self.at_goal = False
         self.good_with_neighbors = True
         self.goal_count = 0
-        self.min_prox = 0.36
+        self.min_prox = 0.4
         self.formation_distance = 0.8
         self.timer = self.create_timer(0.2,self.on_timer)
         self.publisher = self.create_publisher(Twist, '/'+self.agent_name+'/cmd_vel',1)
@@ -106,9 +105,8 @@ class LF_formation_ctl(Node):
         x,y = msg.pose.position.x, msg.pose.position.y
         if neighbor in self.leaders:
             self.leader_headings[neighbor] = quaternion_to_heading_angle(msg.pose.orientation)
-        if neighbor == self.id:
-            self.heading = quaternion_to_heading_angle(msg.pose.orientation)
-        self.X[neighbor] = np.array((x,y))  
+        self.X[neighbor] = np.array((x,y)) 
+        self.headings[neighbor] = quaternion_to_heading_angle(msg.pose.orientation) 
     # Dock subscription callback(Not currently used)
     def dockCallback(self, msg: DockStatus):
     # Not currently used
@@ -168,7 +166,8 @@ class LF_formation_ctl(Node):
         #Xi = np.array((0,0))
         dx = np.array((0.0,0.0))
         self.good_with_neighbors = True
-        avoid_list = []
+        avoid_heading = []
+        closest_collision = 100
         for neighbor in self.neighbors:
             neighbor_name = self.namespace+str(neighbor)
             if self.trackedNeighbors[neighbor] == 1:
@@ -177,7 +176,9 @@ class LF_formation_ctl(Node):
             ### Checks if current agent is about to run into any of its neighbors before it reaches the goal.  If so, adds the positions of neighbor to an avoid list.
                 if euclid_diff<= self.min_prox and neighbor != self.id:
                     print(self.agent_name+' is '+str(euclid_diff)+' away from '+neighbor_name)
-                    avoid_list.append(diff)
+                    if euclid_diff < closest_collision:
+                        closest_collision = euclid_diff
+                        avoid_heading = self.headings[neighbor]
                 if (euclid_diff - self.Fd[neighbor])> 0.15:
                     self.at_goal = False
                     dx+= (euclid_diff- self.Fd[neighbor])*diff
@@ -186,11 +187,11 @@ class LF_formation_ctl(Node):
         dx = dx
         #if self.id == 1:
            # print('updating to go towards: '+str(dx))
-        self.stateUpdate(dx,avoid_list)
+        self.stateUpdate(dx,avoid_heading)
 
 
      
-    def stateUpdate(self, dx,avoid_list = []):
+    def stateUpdate(self, dx,avoid_heading = []):
     #------------STATE UPDATE
     #------------Sends dx as Twist message to topic /self.agent_name/cmd_vel 
     #------------If 
@@ -228,30 +229,28 @@ class LF_formation_ctl(Node):
                 msg.angular.z =self.rot_vel*dtheta
                 msg.linear.x = self.linear_vel*min(dist_from_goal,1.5)
             #### If current agent has not reached its goal and avoid list is populated, reroute to avoid collisions
-           #if avoid_list != [] and dist_from_goal> self.min_goal_prox:
-            #    print(self.agent_name+' avoiding')
-                #self.reroute(avoid_list)
+            if avoid_heading != [] and dist_from_goal> self.min_goal_prox:
+                 print(self.agent_name+' avoiding')
+                 self.reroute(avoid_heading)
             #### If not about to collide, publish Twist message to /self.agent_name/cmd_vel
-            #else:
-            if not self.at_goal:
-                self.publisher.publish(msg)
             else:
-                self.goal_count+=1
-                if self.goal_count ==20:
-                    self.at_goal= False
-                    self.goal_count=0
+                if not self.at_goal:
+                    self.publisher.publish(msg)
+                else:
+                    self.goal_count+=1
+                    if self.goal_count ==20:
+                        self.at_goal= False
+                        self.goal_count=0
             
     
-    def reroute(self,avoid_list):
+    def reroute(self,avoid_heading):
     #Untested..
         msg = Twist()
-        theta_avoid =[]
-        for loc in avoid_list:
-            x = loc[0]
-            y = loc[1]
-            theta = math.atan2(y,x)
-            theta_avoid.append(theta-self.heading)
-        rightmost = max(theta_avoid)+.3
-        msg.angular.z = self.rot_vel*rightmost
+        heading_diff = abs(avoid_heading-self.headings[self.id])
+        if heading_diff> math.pi/2:
+            dtheta = self.headings[self.id]+avoid_heading/2
+        else:
+            dtheta = self.headings[self.id]+avoid_heading
+        msg.angular.z = dtheta
         msg.linear.x = 0.2
         self.publisher.publish(msg)

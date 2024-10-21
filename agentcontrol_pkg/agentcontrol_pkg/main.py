@@ -32,7 +32,7 @@ def main():
             Ni = []
             Fdi = dict.fromkeys(agents)
             for j in range(len(A[i])):
-                if A[i][j]  != 0:
+                if A[i][j]  != 0 or i == j:
                     Ni.append(agents[j])
                     if opt.lformation:
                         Fdi[agents[j]] = .6*formation_distances[i][j]
